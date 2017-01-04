@@ -17,10 +17,8 @@ try {
     $code = 200;
     $reason = "OK";
     $version = "1.1";
-    $serverParams = $request->getServerParams();
-    
     if ($request->getMethod() == Constants::METHOD_GET) {
-
+        $serverParams = $request->getServerParams();
         $body["@id"] = $serverParams['REQUEST_URI'];
         $body["to"] = "Pillr";
         $body["subject"] = "Hello Pillr";
@@ -37,11 +35,9 @@ try {
     file_put_contents($tempFile, json_encode($body));
     $body = new Stream($tempFile);
     $header = array();
-    $header["Date"] = date("D, d M Y H:i:s T");
-    $header["Server"] = $serverParams['SERVER_SOFTWARE'];
+    $header[Constants::HEADER_CONTENT_TYPE] = Constants::CONTENT_TYPE_JSON;
     $header["Last-Modified"] = date("D, d M Y H:i:s T");
     $header["Content-Length"] = $body->getSize();
-    $header[Constants::HEADER_CONTENT_TYPE] = Constants::CONTENT_TYPE_JSON;
     $response = new Response($version,$code,$reason, $header , $body);
     $response->getHeaders();
     echo $response->getBody()->getContents() . PHP_EOL;

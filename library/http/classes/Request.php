@@ -43,8 +43,9 @@ class Request extends Message implements RequestInterface
         $body = NULL)
     {
 
+
         $this->uriObj = $uri;
-        $this->uri = ($this->uriObj != NULL)? $this->uriObj->getUriString() : "";
+        $this->uri = ($this->uriObj != NULL)?$this->uriObj->getUriString():"";
         $this->body = $body;
         $this->method = $this->checkMethod($method);
         $this->httpHeaders = $headers;

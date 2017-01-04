@@ -26,7 +26,7 @@ use InvalidArgumentException;
  */
 class Uri implements UriInterface
 {
-    protected $uriString = "";
+    protected $uriString;
     protected $uriParts = array();
     protected $queryParams = array();
     public function __construct($uriString)
@@ -241,9 +241,6 @@ class Uri implements UriInterface
     }
 
     public function getUriString() {
-        if (empty($this->uriString)) {
-            return '';
-        }
         return $this->uriString;
     }
 
