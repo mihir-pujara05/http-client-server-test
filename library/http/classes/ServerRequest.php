@@ -2,7 +2,9 @@
 namespace pillr\library\http;
 
 use \Psr\Http\Message\ServerRequestInterface as ServerRequestInterface;
-
+use \pillr\library\http\Constants as Constants;
+use InvalidArgumentException;
+use Psr\Http\Message\UploadedFileInterface;
 use \pillr\library\http\Request              as Request;
 /**
  * Representation of an incoming, server-side HTTP request.
@@ -45,6 +47,16 @@ use \pillr\library\http\Request              as Request;
 class ServerRequest extends Request implements ServerRequestInterface
 {
 
+    protected $serverParams;
+    protected $cookies;
+    protected $queryParams;
+    protected $contentType;
+    protected $parsedBody;
+    protected $attributes;
+    protected $method;
+    protected $uploadedFileInfo;
+    protected $uploadedFileObjs;
+
     /**
      * Retrieve server parameters.
      *
@@ -56,7 +68,10 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function getServerParams()
     {
-
+        if (!$this->serverParams) {
+            $this->serverParams = $_SERVER;
+        }
+        return $this->serverParams;
     }
 
     /**
@@ -71,7 +86,10 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function getCookieParams()
     {
-
+        if (!$this->cookies) {
+            $this->cookies = $_COOKIE;
+        }
+        return $this->cookies;
     }
 
     /**
@@ -93,7 +111,8 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function withCookieParams(array $cookies)
     {
-
+        array_merge($this->getCookieParams(), $cookies);
+        return $this;
     }
 
     /**
@@ -110,7 +129,18 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function getQueryParams()
     {
+        if (!$this->queryParams) {
+            $this->queryParams = $_GET;
+        }
+        return $this->queryParams;
+    }
 
+    public function getUploadedFileInfo()
+    {
+        if (!$this->uploadedFileInfo) {
+            $this->uploadedFileInfo = $_FILES;
+        }
+        return $this->uploadedFileInfo;
     }
 
     /**
@@ -137,7 +167,8 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function withQueryParams(array $query)
     {
-
+        array_merge($this->getQueryParams(), $query);
+        return $this;
     }
 
     /**
@@ -154,7 +185,13 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function getUploadedFiles()
     {
-
+        if (!$this->uploadedFileObjs) {
+            foreach ($this->getUploadedFileInfo() as $field => $value) {
+                $this->uploadedFileObjs[$field] =
+                    new UploadedFile($field, $value);
+            }
+        }
+        return $this->uploadedFileObjs;
     }
 
     /**
@@ -170,7 +207,15 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function withUploadedFiles(array $uploadedFiles)
     {
-
+        if (!count($uploadedFiles)) {
+            throw new InvalidArgumentException(Constants::ERROR_NO_UPLOADED_FILES);
+        }
+        foreach ($uploadedFiles as $fileObj) {
+            if (!$fileObj instanceof UploadedFileInterface) {
+                throw new InvalidArgumentException(Constants::ERROR_INVALID_UPLOADED);
+            }
+        }
+        $this->uploadedFileObjs = $uploadedFiles;
     }
 
     /**
@@ -190,7 +235,40 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function getParsedBody()
     {
+        if (!$this->parsedBody) {
+            if(($this->getContentType() == Constants::CONTENT_TYPE_FORM_ENCODED ||
+                    $this->getContentType() == Constants::CONTENT_TYPE_MULTI_FORM) &&
+                $this->getRequestMethod() == Constants::METHOD_POST) {
+            $this->parsedBody = $_POST;
+            } elseif ($this->getContentType() == Constants::CONTENT_TYPE_JSON ||
+                    $this->getContentType() == Constants::CONTENT_TYPE_HAL_JSON) {
+                ini_set("allow_url_fopen", true);
+                $this->parsedBody = json_decode(file_get_contents('php://input'));
+            } elseif (!empty($_REQUEST)) {
+                $this->parsedBody = $_REQUEST;
+            } else {
+                    ini_set("allow_url_fopen", true);
+                    $this->parsedBody = file_get_contents('php://input');
+            }
+        }
+        return $this->parsedBody;
+    }
 
+    public function getContentType()
+    {
+        if (!$this->contentType) {
+            $this->contentType =
+                $this->getServerParams()['CONTENT_TYPE'] ?? '';
+            $this->contentType = strtolower($this->contentType);
+        }
+        return $this->contentType;
+    }
+
+    public function getRequestMethod()
+    {
+        $method = $this->getServerParams()['REQUEST_METHOD'] ?? '';
+        $this->method = strtolower($method);
+        return $this->method;
     }
 
     /**
@@ -223,7 +301,8 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function withParsedBody($data)
     {
-
+        $this->parsedBody = $data;
+        return $this;
     }
 
     /**
@@ -239,7 +318,7 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function getAttributes()
     {
-
+        return $this->attributes;
     }
 
     /**
@@ -259,7 +338,7 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function getAttribute($name, $default = null)
     {
-
+        return $this->attributes[$name] ?? $default;
     }
 
     /**
@@ -279,7 +358,8 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function withAttribute($name, $value)
     {
-
+        $this->attributes[$name] = $value;
+        return $this;
     }
 
     /**
@@ -298,6 +378,21 @@ class ServerRequest extends Request implements ServerRequestInterface
      */
     public function withoutAttribute($name)
     {
+        if (isset($this->attributes[$name])) {
+            unset($this->attributes[$name]);
+        }
+        return $this;
+    }
 
+    public function initialize()
+    {
+        $this->getServerParams();
+        $this->getCookieParams();
+        $this->getQueryParams();
+        $this->getUploadedFiles();
+        $this->getRequestMethod();
+        $this->getContentType();
+        $this->getParsedBody();
+        return $this;
     }
 }

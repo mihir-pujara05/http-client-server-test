@@ -2,7 +2,10 @@
 namespace pillr\library\http;
 
 use \Psr\Http\Message\StreamInterface as StreamInterface;
-
+use SplFileInfo;
+use RuntimeException;
+use Throwable;
+use pillr\library\http\Constants;
 /**
  * Describes a data stream.
  *
@@ -12,6 +15,17 @@ use \Psr\Http\Message\StreamInterface as StreamInterface;
  */
 class Stream implements StreamInterface
 {
+
+    protected $stream;
+    protected $metadata;
+    protected $info;
+
+    public function __construct($input, $mode = Constants::MODE_READ)
+    {
+        $this->stream = fopen($input, $mode);
+        $this->metadata = stream_get_meta_data($this->stream);
+        $this->info = new SplFileInfo($input);
+    }
     /**
      * Reads all data from the stream into a string, from the beginning to end.
      *
@@ -28,7 +42,8 @@ class Stream implements StreamInterface
      */
     public function __toString()
     {
-
+        $this->rewind();
+        return $this->getContents();
     }
 
     /**
@@ -38,7 +53,9 @@ class Stream implements StreamInterface
      */
     public function close()
     {
-
+        if ($this->stream) {
+            fclose($this->stream);
+        }
     }
 
     /**
@@ -50,7 +67,7 @@ class Stream implements StreamInterface
      */
     public function detach()
     {
-
+        $this->close();
     }
 
     /**
@@ -60,7 +77,7 @@ class Stream implements StreamInterface
      */
     public function getSize()
     {
-
+        return $this->info->getSize();
     }
 
     /**
@@ -71,7 +88,11 @@ class Stream implements StreamInterface
      */
     public function tell()
     {
-
+        try {
+            return ftell($this->stream);
+        } catch (Throwable $e) {
+            throw new RuntimeException(Constants::ERROR_BAD . __METHOD__);
+        }
     }
 
     /**
@@ -81,7 +102,7 @@ class Stream implements StreamInterface
      */
     public function eof()
     {
-
+        return feof($this->stream);
     }
 
     /**
@@ -91,7 +112,7 @@ class Stream implements StreamInterface
      */
     public function isSeekable()
     {
-
+        return boolval($this->metadata['seekable']);
     }
 
     /**
@@ -108,7 +129,11 @@ class Stream implements StreamInterface
      */
     public function seek($offset, $whence = SEEK_SET)
     {
-
+        try {
+            fseek($this->stream, $offset, $whence);
+        } catch (Throwable $e) {
+            throw new RuntimeException(Constants::ERROR_BAD . __METHOD__);
+        }
     }
 
     /**
@@ -123,7 +148,9 @@ class Stream implements StreamInterface
      */
     public function rewind()
     {
-
+        if (!rewind($this->stream)) {
+            throw new RuntimeException(Constants::ERROR_BAD . __METHOD__);
+        }
     }
 
     /**
@@ -133,7 +160,7 @@ class Stream implements StreamInterface
      */
     public function isWritable()
     {
-
+        return $this->stream->isWritable();
     }
 
     /**
@@ -145,7 +172,9 @@ class Stream implements StreamInterface
      */
     public function write($string)
     {
-
+        if (!fwrite($this->stream, $string)) {
+            throw new RuntimeException(Constants::ERROR_BAD . __METHOD__);
+        }
     }
 
     /**
@@ -155,7 +184,7 @@ class Stream implements StreamInterface
      */
     public function isReadable()
     {
-
+        return $this->info->isReadable();
     }
 
     /**
@@ -170,7 +199,9 @@ class Stream implements StreamInterface
      */
     public function read($length)
     {
-
+        if (!fread($this->stream, $length)) {
+            throw new RuntimeException(Constants::ERROR_BAD . __METHOD__);
+        }
     }
 
     /**
@@ -182,7 +213,12 @@ class Stream implements StreamInterface
      */
     public function getContents()
     {
-
+        ob_start();
+        if (!fpassthru($this->stream)) {
+            throw new RuntimeException(
+                Constants::ERROR_BAD . __METHOD__);
+        }
+        return ob_get_clean();
     }
 
     /**
@@ -199,6 +235,10 @@ class Stream implements StreamInterface
      */
     public function getMetadata($key = null)
     {
-        
+        if ($key) {
+            return $this->metadata[$key] ?? NULL;
+        } else {
+            return $this->metadata;
+        }
     }
 }

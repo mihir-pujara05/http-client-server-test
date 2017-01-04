@@ -3,6 +3,10 @@
 namespace pillr\library\http;
 
 use \Psr\Http\Message\UploadedFileInterface as UploadedFileInterface;
+use InvalidArgumentException;
+use Exception;
+use RuntimeException;
+use pillr\library\http\Constants;
 
 
 /**
@@ -15,6 +19,21 @@ use \Psr\Http\Message\UploadedFileInterface as UploadedFileInterface;
  */
 class UploadedFile implements UploadedFileInterface
 {
+
+    protected $field; // original name of file upload field
+    protected $info; // $_FILES[$field]
+    protected $randomize;
+    protected $movedName = '';
+
+
+    public function __construct($field, array $info, $randomize = FALSE)
+    {
+        $this->field = $field;
+        $this->info = $info;
+        $this->randomize = $randomize;
+    }
+
+
     /**
      * Retrieve a stream representing the uploaded file.
      *
@@ -33,7 +52,14 @@ class UploadedFile implements UploadedFileInterface
      */
     public function getStream()
     {
-
+        if (!$this->stream) {
+            if ($this->movedName) {
+                $this->stream = new Stream($this->movedName);
+            } else {
+                $this->stream = new Stream($this->info['tmp_name']);
+            }
+        }
+        return $this->stream;
     }
 
     /**
@@ -70,7 +96,31 @@ class UploadedFile implements UploadedFileInterface
      */
     public function moveTo($targetPath)
     {
-
+        if ($this->moved) {
+            throw new Exception(Constants::ERROR_MOVE_DONE);
+        }
+        if (!file_exists($targetPath)) {
+            throw new InvalidArgumentException(Constants::ERROR_BAD_DIR);
+        }
+        $tempFile = $this->info['tmp_name'] ?? FALSE;
+        if (!$tempFile || !file_exists($tempFile)) {
+            throw new Exception(Constants::ERROR_BAD_FILE);
+        }
+        if (!is_uploaded_file($tempFile)) {
+            throw new Exception(Constants::ERROR_FILE_NOT);
+        }
+        if ($this->randomize) {
+            $final = bin2hex(random_bytes(8)) . '.txt';
+        } else {
+            $final = $this->info['name'];
+        }
+        $final = $targetPath . '/' . $final;
+        $final = str_replace('//', '/', $final);
+        if (!move_uploaded_file($tempFile, $final)) {
+            throw new RuntimeException(Constants::ERROR_MOVE_UNABLE);
+        }
+        $this->movedName = $final;
+        return TRUE;
     }
 
     /**
@@ -84,7 +134,7 @@ class UploadedFile implements UploadedFileInterface
      */
     public function getSize()
     {
-
+        return $this->info['size'] ?? NULL;
     }
 
     /**
@@ -103,7 +153,10 @@ class UploadedFile implements UploadedFileInterface
      */
     public function getError()
     {
-
+        if (!$this->moved) {
+            return UPLOAD_ERR_OK;
+        }
+        return $this->info['error'];
     }
 
     /**
@@ -121,7 +174,7 @@ class UploadedFile implements UploadedFileInterface
      */
     public function getClientFilename()
     {
-
+        return $this->info['name'] ?? NULL;
     }
 
     /**
@@ -139,6 +192,6 @@ class UploadedFile implements UploadedFileInterface
      */
     public function getClientMediaType()
     {
-
+        return $this->info['type'] ?? NULL;
     }
 }

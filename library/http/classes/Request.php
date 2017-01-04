@@ -5,7 +5,9 @@ namespace pillr\library\http;
 
 use \Psr\Http\Message\RequestInterface  as  RequestInterface;
 use \Psr\Http\Message\UriInterface      as  UriInterface;
-
+use Psr\Http\Message\StreamInterface as StreamInterface;
+use InvalidArgumentException;
+use \pillr\library\http\Constants;
 use \pillr\library\http\Message         as  Message;
 /**
  * Representation of an outgoing, client-side request.
@@ -29,6 +31,35 @@ use \pillr\library\http\Message         as  Message;
 class Request extends Message implements RequestInterface
 {
 
+    protected $uri;
+    protected $method; // HTTP method
+    protected $uriObj;
+
+    public function __construct(
+        $version = NULL ,
+        $method = NULL,
+        $uri = NULL,
+        $headers = NULL,
+        $body = NULL)
+    {
+
+        $this->uriObj = $uri;
+        $this->uri = ($this->uriObj != NULL)? $this->uriObj->getUriString() : "";
+        $this->body = $body;
+        $this->method = $this->checkMethod($method);
+        $this->httpHeaders = $headers;
+        $this->version = $this->onlyVersion($version);
+    }
+
+    protected function checkMethod($method)
+    {
+        if (!$method === NULL) {
+            if (!in_array(strtolower($method), Constants::HTTP_METHODS)) {
+                throw new InvalidArgumentException(Constants::ERROR_HTTP_METHOD);
+            }
+        }
+        return $method;
+    }
 
     /**
      * Retrieves the message's request target.
@@ -48,7 +79,7 @@ class Request extends Message implements RequestInterface
      */
     public function getRequestTarget()
     {
-
+        return $this->uri ?? Constants::DEFAULT_REQUEST_TARGET;
     }
 
     /**
@@ -70,7 +101,9 @@ class Request extends Message implements RequestInterface
      */
     public function withRequestTarget($requestTarget)
     {
-
+        $this->uriObj = new Uri($requestTarget);
+        $this->uri = $requestTarget;
+        return $this;
     }
 
     /**
@@ -80,7 +113,7 @@ class Request extends Message implements RequestInterface
      */
     public function getMethod()
     {
-
+        return $this->method;
     }
 
     /**
@@ -100,7 +133,8 @@ class Request extends Message implements RequestInterface
      */
     public function withMethod($method)
     {
-
+        $this->method = $this->checkMethod($method);
+        return $this;
     }
 
     /**
@@ -114,7 +148,10 @@ class Request extends Message implements RequestInterface
      */
     public function getUri()
     {
-
+        if (!$this->uriObj) {
+            $this->uriObj = new Uri($this->uri);
+        }
+        return $this->uriObj;
     }
 
     /**
@@ -149,7 +186,16 @@ class Request extends Message implements RequestInterface
      */
     public function withUri(UriInterface $uri, $preserveHost = false)
     {
-
+        if ($preserveHost) {
+            $found = $this->findHeader(Constants::HEADER_HOST);
+            if (!$found && $uri->getHost()) {
+                $this->httpHeaders[Constants::HEADER_HOST] = $uri->getHost();
+            }
+        } elseif ($uri->getHost()) {
+            $this->httpHeaders[Constants::HEADER_HOST] = $uri->getHost();
+        }
+        $this->uri = $uri->__toString();
+        return $this;
     }
 
 

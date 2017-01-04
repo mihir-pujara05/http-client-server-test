@@ -13,6 +13,7 @@ return array(
     'Psr\\Http\\Message\\StreamInterface' => $baseDir . '/library/http/interfaces/StreamInterface.php',
     'Psr\\Http\\Message\\UploadedFileInterface' => $baseDir . '/library/http/interfaces/UploadedFileInterface.php',
     'Psr\\Http\\Message\\UriInterface' => $baseDir . '/library/http/interfaces/UriInterface.php',
+    'pillr\\library\\http\\Constants' => $baseDir . '/library/http/classes/Constants.php',
     'pillr\\library\\http\\Message' => $baseDir . '/library/http/classes/Message.php',
     'pillr\\library\\http\\Request' => $baseDir . '/library/http/classes/Request.php',
     'pillr\\library\\http\\Response' => $baseDir . '/library/http/classes/Response.php',

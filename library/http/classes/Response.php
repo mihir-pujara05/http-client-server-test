@@ -3,9 +3,9 @@ namespace pillr\library\http;
 
 
 use \Psr\Http\Message\ResponseInterface as ResponseInterface;
-
+use Psr\Http\Message\StreamInterface;
 use \pillr\library\http\Message         as  Message;
-
+use InvalidArgumentException;
 /**
  * Representation of an outgoing, server-side response.
  *
@@ -23,6 +23,23 @@ use \pillr\library\http\Message         as  Message;
  */
 class Response extends Message implements ResponseInterface
 {
+    protected $status = array();
+
+
+    public function __construct(
+        $version = NULL,
+        $statusCode = NULL,
+        $reason = NULL,
+        $headers = NULL,
+        $body = NULL)
+    {
+        $this->body = $body;
+        $this->status['code'] = $statusCode ?? Constants::DEFAULT_STATUS_CODE;
+        $this->status['reason'] = $reason ?? Constants::DEFAULT_REASON;
+        $this->httpHeaders = $headers;
+        $this->version = $this->onlyVersion($version);
+        if ($statusCode) $this->setStatusCode();
+    }
     /**
      * Gets the response status code.
      *
@@ -33,7 +50,7 @@ class Response extends Message implements ResponseInterface
      */
     public function getStatusCode()
     {
-
+        return $this->status['code'];
     }
 
     /**
@@ -58,7 +75,18 @@ class Response extends Message implements ResponseInterface
      */
     public function withStatus($code, $reasonPhrase = '')
     {
+        if (empty(Constants::STATUS_CODES[$code])) {
+            throw new InvalidArgumentException(Constants::ERROR_INVALID_STATUS);
+        }
+        $this->status['code'] = $code;
+        $this->status['reason'] = ($reasonPhrase) ? Constants::STATUS_CODES[$code] : NULL;
+        $this->setStatusCode();
+        return $this;
+    }
 
+    public function setStatusCode()
+    {
+        http_response_code($this->getStatusCode());
     }
 
     /**
@@ -76,6 +104,6 @@ class Response extends Message implements ResponseInterface
      */
     public function getReasonPhrase()
     {
-
+        return $this->status['reason'] ?? Constants::STATUS_CODES[$this->status['code']] ?? '';
     }
 }
